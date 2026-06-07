@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Import Studio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#5C666B;--surface:#4a5459;--surface2:#3f484d;--surface3:#363f44;
+  --border:#6e7a80;--border2:#8a9499;
+  --text:#F0F4F5;--text2:#C8D0D4;--text3:#9AAAB0;
+  --accent:#52D9C0;--accentL:rgba(82,217,192,0.15);--accentD:#2eb89e;
+  --red:#F4745B;--amber:#F5A623;--yellow:#F5C842;--blue:#64C8E8;--purple:#C08EF0;--green:#7FD67A;
+  --r:6px;--r2:10px;
+  font-family:'Segoe UI',system-ui,sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;
+  padding:0 24px;gap:14px;height:52px;flex-shrink:0}
+.topbar h1{font-size:17px;font-weight:600;letter-spacing:-.3px}
+.pill{background:var(--accentL);color:var(--accent);font-size:10px;font-weight:600;padding:2px 8px;
+  border-radius:20px;border:1px solid var(--accent)}
+main{flex:1;padding:24px;max-width:1400px;width:100%;margin:0 auto}
+
+/* Steps */
+.steps{display:flex;gap:8px;margin-bottom:20px;align-items:center}
+.step{display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:20px;font-size:12px;
+  background:var(--surface2);color:var(--text3);border:1px solid var(--border)}
+.step.active{background:var(--accentL);color:var(--accent);border-color:var(--accent)}
+.step.done{color:var(--green);border-color:var(--green)}
+.step-num{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;
+  border-radius:50%;background:var(--surface3);font-size:10px;font-weight:700}
+.step.active .step-num{background:var(--accent);color:#1a1a1a}
+.step-arrow{color:var(--border2)}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:20px;margin-bottom:16px}
+.card h2{font-size:15px;font-weight:600;margin-bottom:12px}
+
+/* Dropzone */
+.dropzone{border:2px dashed var(--border2);border-radius:var(--r2);padding:48px 24px;text-align:center;
+  cursor:pointer;transition:all .15s;background:var(--surface2)}
+.dropzone:hover,.dropzone.drag{border-color:var(--accent);background:var(--accentL)}
+.dropzone .big{font-size:42px;margin-bottom:10px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);font-size:13px;
+  font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--surface);color:var(--text);
+  transition:all .12s;font-family:inherit}
+.btn:hover{background:var(--surface2)}
+.btn-primary{background:var(--accent);color:#1a1a1a;border-color:var(--accentD)}
+.btn-primary:hover{background:var(--accentD)}
+.btn-sm{padding:4px 10px;font-size:11px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* Form */
+.form-row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px}
+.form-input,.form-select{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);
+  padding:6px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none}
+.form-input:focus,.form-select:focus{border-color:var(--accent)}
+.hint{font-size:11px;color:var(--text3);margin-top:4px}
+
+/* Raw grid preview */
+.grid-wrap{overflow:auto;max-height:440px;border:1px solid var(--border);border-radius:var(--r);position:relative}
+table.grid{border-collapse:collapse;font-size:11px;white-space:nowrap}
+table.grid th,table.grid td{border:1px solid var(--border);padding:3px 7px;text-align:center;min-width:54px;max-width:160px;
+  overflow:hidden;text-overflow:ellipsis}
+table.grid th{background:var(--surface3);color:var(--text3);position:sticky;top:0;font-weight:600;z-index:2}
+table.grid td.rownum{background:var(--surface3);color:var(--text3);position:sticky;left:0;font-weight:600;z-index:1}
+table.grid td.grpcol{background:var(--surface3);color:var(--text3);position:sticky;left:32px;font-size:10px;font-weight:600;z-index:1;min-width:90px;max-width:120px;text-align:left}
+table.grid th.colhdr{cursor:default}
+table.grid th.blockhdr{cursor:pointer;background:var(--surface2);transition:background .12s}
+table.grid th.blockhdr:hover{background:var(--accentL);color:var(--accent)}
+table.grid th.blockhdr.anchor{background:var(--accent);color:#1a1a1a}
+table.grid th.blockhdr.manualday{box-shadow:inset 0 -3px 0 var(--blue)}
+.blockhdr-sub{font-size:8px;font-weight:600;opacity:.75;margin-top:1px;white-space:nowrap}
+#rawGrid.assigning tbody tr.clickable{cursor:row-resize;user-select:none}
+#rawGrid.assigning tbody tr.clickable:hover td{background:var(--accentL)}
+#rawGrid tbody tr.drag-sel td{background:rgba(82,217,192,0.30)!important}
+#rawGrid tbody tr.drag-locked td{background:rgba(244,116,91,0.18)!important;opacity:.6}
+table.grid tr.boundary td{border-top:2px solid var(--accent)}
+/* role highlight colors */
+.role-id{background:rgba(82,217,192,0.22)}
+td.idcell{padding:1px 2px}
+input.id-edit{width:62px;background:transparent;border:1px solid transparent;border-radius:3px;
+  color:var(--text);font-size:11px;font-family:inherit;padding:2px 4px;text-align:center;outline:none}
+input.id-edit:hover{border-color:var(--border2)}
+input.id-edit:focus{border-color:var(--accent);background:var(--surface3)}
+.id-clean{font-size:8px;color:var(--accent);margin-left:1px;opacity:.8}
+.role-L{background:rgba(100,200,232,0.20)}
+.role-W{background:rgba(127,214,122,0.20)}
+.role-V{background:rgba(245,200,66,0.18)}
+.role-Wt{background:rgba(192,142,240,0.20)}
+.role-group{background:rgba(245,166,35,0.25);font-weight:700}
+.role-skip{opacity:.4}
+
+/* Block list */
+.block-chip{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:20px;padding:4px 12px;font-size:11px;margin:3px}
+.block-chip .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+
+/* Result table (V3 preview) */
+.v3-wrap{overflow:auto;max-height:400px;border:1px solid var(--border);border-radius:var(--r)}
+table.v3{border-collapse:collapse;font-size:11px;width:100%}
+table.v3 th,table.v3 td{border:1px solid var(--border);padding:4px 9px;text-align:left;white-space:nowrap}
+table.v3 th{background:var(--surface3);color:var(--text3);font-weight:600;position:sticky;top:0}
+table.v3 td.mono{font-variant-numeric:tabular-nums}
+table.v3 tr:hover td{background:var(--surface2)}
+
+.stat-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.stat{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 16px;text-align:center;flex:1;min-width:90px}
+.stat-val{font-size:22px;font-weight:700}
+.stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+.msg{padding:10px 14px;border-radius:var(--r);font-size:12px;margin-bottom:12px}
+.msg.warn{background:rgba(245,166,35,0.15);border:1px solid var(--amber);color:var(--amber)}
+.msg.error{background:rgba(244,116,91,0.15);border:1px solid var(--red);color:var(--red)}
+.msg.ok{background:rgba(82,217,192,0.12);border:1px solid var(--accent);color:var(--accent)}
+
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--text3);margin-top:10px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend .sw{width:14px;height:14px;border-radius:3px;display:inline-block}
+
+.hidden{display:none}
+footer{text-align:center;padding:8px;font-size:10px;color:var(--text3);border-top:1px solid var(--border);background:var(--surface2)}
+
+.flag-row{display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0}
+.flag-row input[type=checkbox]{accent-color:var(--accent)}
+.tag{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;background:var(--surface3);color:var(--text3)}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <h1>Import Studio</h1>
+  <span class="pill">Raw Excel → TGI V3</span>
+  <div style="margin-left:auto;display:flex;gap:8px">
+    <button class="btn btn-sm" onclick="loadExample()" title="Load the bundled messy example">🧪 Example</button>
+    <button class="btn btn-sm" onclick="resetAll()">↺ Start over</button>
+  </div>
+</header>
+
+<main>
+  <div class="steps">
+    <div class="step active" id="stp1"><span class="step-num">1</span> Upload</div>
+    <span class="step-arrow">→</span>
+    <div class="step" id="stp2"><span class="step-num">2</span> Review structure</div>
+    <span class="step-arrow">→</span>
+    <div class="step" id="stp3"><span class="step-num">3</span> Export V3</div>
+  </div>
+
+  <!-- STEP 1 -->
+  <div id="view1">
+    <div class="card">
+      <h2>Upload your messy measurements file</h2>
+      <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+        <div class="big">📄</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:4px">Drop an Excel file here, or click to browse</div>
+        <div class="hint">.xlsx / .xls — multi-day tumor measurements with a repeating column layout</div>
+      </div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" class="hidden" onchange="handleFile(this.files[0])">
+      <div class="hint" style="margin-top:14px">
+        Import Studio reads a sheet where each measurement day repeats as a horizontal block of columns
+        (Animal&nbsp;ID · Length · Width · Volume · Weight), with group/arm names on their own rows.
+        It auto-detects that layout, lets you confirm the column roles, and exports clean
+        <b>TGI&nbsp;Studio V3</b> format.
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div id="view2" class="hidden">
+    <div class="card">
+      <h2>Sheet & detected structure</h2>
+      <div class="form-row" style="margin-bottom:14px">
+        <div class="form-group">
+          <label class="form-label">Sheet</label>
+          <select class="form-select" id="sheetSel" onchange="onSheetChange()"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Header rows to skip</label>
+          <input class="form-input" type="number" id="headerRows" value="1" min="0" style="width:90px" oninput="redetectDebounced()" onchange="redetect()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Block width (cols)</label>
+          <input class="form-input" type="number" id="blockWidth" value="6" min="3" style="width:90px" oninput="redetectDebounced()" onchange="redetect()">
+        </div>
+        <div class="form-group" id="roleOrderGroup">
+          <label class="form-label">Column roles within a block</label>
+          <select class="form-select" id="roleOrderSel" onchange="document.getElementById('roleOrder').value=this.value; redetect()">
+            <option value="id,L,W,V,Wt">ID · Length · Width · Volume · Weight</option>
+            <option value="id,L,W,Wt">ID · Length · Width · Weight</option>
+            <option value="id,L,W">ID · Length · Width</option>
+            <option value="id,V,Wt">ID · Volume · Weight</option>
+            <option value="id,V">ID · Volume</option>
+            <option value="custom">Custom (edit below)…</option>
+          </select>
+          <input class="form-input" id="roleOrder" value="id,L,W,V,Wt" placeholder="e.g. id,L,W,V,Wt"
+            style="margin-top:4px;font-size:11px;font-family:monospace;display:none"
+            oninput="redetectDebounced()" onchange="redetect()" title="Comma-separated roles: id, L, W, V, Wt, day, skip">
+          <div class="hint" id="roleOrderHint">Roles applied in order to each block's columns.</div>
+        </div>
+        <div class="form-group" style="display:none">
+          <label class="form-label">Group name keywords (comma-separated)</label>
+          <input class="form-input" id="groupKeywords" value="arm,group,grp,cohort,vehicle,veh,control,ctrl,treatment,treat,dose,tx"
+            oninput="updateGroupPatDebounced()" onchange="updateGroupPat()" title="Rows starting with any of these words mark a new treatment group">
+        </div>
+      </div>
+
+      <div id="groupsFound" style="margin:4px 0 12px"></div>
+
+      <div id="detectMsg"></div>
+
+      <h2 style="margin-top:6px">Detected day-blocks</h2>
+      <div id="blockList" style="margin-bottom:6px"></div>
+      <div class="hint">Each block becomes one timepoint. Edit the day number for any block if the auto-derived value is off.</div>
+      <div id="blockDays" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>
+      <div id="manualDaysBar" class="hidden" style="margin-top:8px"></div>
+
+      <h2 style="margin-top:18px;display:flex;align-items:center;gap:12px">Raw sheet (color-coded by detected role)
+        <span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm" id="autoGroupsBtn" onclick="seedManualFromAuto(true)" title="Detect all arms/groups and rename them cleanly as Arm 1, Arm 2, …">✨ Auto-detect groups (clean names)</button>
+          <button class="btn btn-sm" id="assignGroupsBtn" onclick="setAssignMode('groups')">👆 Assign animals → groups</button>
+          <button class="btn btn-sm" id="undoAssignBtn" onclick="undoLastAssign()" style="display:none;border-color:var(--amber);color:var(--amber)" title="Undo last group drag">↩ Undo last</button>
+          <button class="btn btn-sm" id="clearGroupsBtn" onclick="clearAllGroupAssign()" style="display:none;border-color:var(--red);color:var(--red)" title="Remove all group assignments and start over">↺ Clear groups</button>
+        </span>
+      </h2>
+      <div class="hint" id="assignHint" style="margin-bottom:8px"><b>Assign animals → groups:</b> drag down over a group's rows — all animal rows in the drag become one group. Repeat for each group, then rename them below.</div>
+      <div class="grid-wrap" id="rawGrid"></div>
+      <div class="legend">
+        <span><span class="sw role-group"></span>Group / arm</span>
+        <span><span class="sw role-id"></span>Animal ID</span>
+        <span><span class="sw role-L"></span>Length</span>
+        <span><span class="sw role-W"></span>Width</span>
+        <span><span class="sw role-V"></span>Volume</span>
+        <span><span class="sw role-Wt"></span>Weight</span>
+        <span><span class="sw" style="background:var(--surface2)"></span>Ignored</span>
+      </div>
+
+      <!-- Options -->
+      <div style="display:none">
+        <select id="dayMode"><option value="biweekly" selected>biweekly</option><option value="date">date</option><option value="sequential">sequential</option><option value="manual">manual</option></select>
+        <input type="number" id="firstDay" value="1">
+        <select id="day1Block"></select>
+        <div id="cancerGroupHint"></div>
+      </div>
+
+      <div class="card" style="margin:16px 0 0;background:var(--surface2)">
+        <div class="flag-row"><input type="checkbox" id="optDropPre" checked onchange="buildV3()">
+          <label for="optDropPre">Exclude pre-measurement blocks (days before Day 1)</label></div>
+        <div class="flag-row"><input type="checkbox" id="optVolFromLW" checked onchange="buildV3()">
+          <label for="optVolFromLW">Recompute Volume from L × W² / 2 (ignore stored volume)</label></div>
+        <div class="flag-row"><input type="checkbox" id="optDropNoLW" checked onchange="buildV3()">
+          <label for="optDropNoLW">Skip rows missing both Length and Width</label></div>
+        <div class="flag-row"><input type="checkbox" id="optCleanIds" onchange="redetect()">
+          <label for="optCleanIds">Clean animal IDs — keep digits only (e.g. "43325B" → 43325)</label></div>
+        <div class="flag-row"><input type="checkbox" id="optCancerGroups" checked onchange="redetect()">
+          <label for="optCancerGroups">Auto-detect control group (vehicle/control arm as TGI reference)</label></div>
+      </div>
+
+      <div style="margin-top:16px;display:flex;gap:10px">
+        <button class="btn" onclick="goStep(1)">← Back</button>
+        <button class="btn btn-primary" onclick="goStep(3)">Review export →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div id="view3" class="hidden">
+    <div class="card">
+      <h2>TGI Studio V3 — extraction preview <span style="font-size:10px;font-weight:400;color:var(--accent);margin-left:8px">● live</span></h2>
+      <div class="hint" style="margin-bottom:10px">Updates automatically as you adjust settings in Step 2. Download when ready.</div>
+      <div id="v3Msg"></div>
+      <div class="stat-row" id="v3Stats"></div>
+      <div class="v3-wrap" id="v3Preview"></div>
+      <div id="v3PreviewToggle" style="display:none"></div>
+      <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
+        <button class="btn" onclick="goStep(2)">← Adjust</button>
+        <button class="btn btn-primary" onclick="downloadV3()">⬇ Download V3 Excel</button>
+        <button class="btn" onclick="downloadV3CSV()">⬇ Download CSV</button>
+        <span class="hint" style="margin-left:6px">Then open in TGI Studio via Import.</span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>Import Studio &copy; 2026 Alexey Sorokin</footer>
+
+<script>
+const PALETTE = ['#52D9C0','#64C8E8','#7FD67A','#F5C842','#F4745B','#C08EF0','#F5A623','#D0D5D8'];
+
+// ── Debounce: delay rapid-fire calls (inputs, keystrokes) ────────────────────
+function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+const redetectDebounced = debounce(()=>redetect(), 280);
+const buildV3Debounced  = debounce(()=>buildV3(), 180);
+let WB=null, rawRows=[], blocks=[], blockDays=[], groupsDetected=[], v3rows=[], v3meta={};
+let _groupPat = /^\s*(arm|group|grp|cohort|vehicle|veh|control|ctrl|treatment|treat|dose|tx)\s*\d*\b/i;
+let _manualGroups = [];   // [{row, name}] boundaries (auto-seed / legacy click model)
+let _rowGroupAssign = {}; // {rowIndex: groupName} — explicit drag-assignment (takes priority)
+let _assignTarget = 'off'; // 'off' | 'groups' | 'days'
+let _manualDays = {};     // {blockIndex: dayNumber} — overrides computed day for that block
+let _dupSameDay = new Set();    // "group|id" pairs with a same-day duplicate (typo)
+let _dupCrossGroup = new Set(); // ids appearing in more than one group
+let _rowGroup = {};             // row index → resolved group name (for grid highlight)
+
+// True when any manual grouping (drag map or boundaries) is in effect
+function hasManualGroups(){ return Object.keys(_rowGroupAssign).length>0 || _manualGroups.length>0; }
+
+// Resolve the group name for a given data row index.
+// Priority: explicit drag assignment → boundary model → none.
+function groupForRow(rowIdx){
+  if(_rowGroupAssign[rowIdx]!=null) return _rowGroupAssign[rowIdx];
+  if(_manualGroups.length){
+    let g=null;
+    for(const mg of _manualGroups){ if(mg.row<=rowIdx) g=mg.name; else break; }
+    return g;
+  }
+  return null;
+}
+
+// ── Drag-to-assign groups (event delegation — robust against inputs in cells) ─
+let _dragStart=null, _dragEnd=null, _dragging=false;
+
+function _rowIdxFromEvent(ev){
+  const tr=ev.target.closest('tr[data-row]');
+  return tr ? +tr.getAttribute('data-row') : null;
+}
+
+function onRowMouseUp(){
+  if(!_dragging) return;
+  _dragging=false;
+  const a=Math.min(_dragStart,_dragEnd), b=Math.max(_dragStart,_dragEnd);
+  // clear drag highlight
+  document.querySelectorAll('#rawGrid tbody tr.drag-sel, #rawGrid tbody tr.drag-locked')
+    .forEach(tr=>{ tr.classList.remove('drag-sel','drag-locked'); });
+  saveAssignUndo();   // snapshot before committing
+  assignRangeToGroup(a,b);
+  _dragStart=_dragEnd=null;
+}
+function highlightDragRange(){
+  if(_dragStart==null) return;
+  const a=Math.min(_dragStart,_dragEnd), b=Math.max(_dragStart,_dragEnd);
+  document.querySelectorAll('#rawGrid tbody tr[data-row]').forEach(tr=>{
+    const r=+tr.getAttribute('data-row');
+    const inRange = r>=a && r<=b;
+    const locked  = inRange && _rowGroupAssign[r]!=null;
+    tr.classList.toggle('drag-sel',    inRange && !locked);
+    tr.classList.toggle('drag-locked', inRange &&  locked);
+  });
+}
+// Assign every animal row in [a,b] to one new group
+function assignRangeToGroup(a,b){
+  // collect animal rows in the range
+  const rows=[];
+  for(let r=a;r<=b;r++){
+    if(!rowHasAnimal(r)) continue;
+    if(_rowGroupAssign[r]!=null) continue;   // already assigned — locked, skip
+    rows.push(r);
+  }
+  if(!rows.length){ redetect(); return; }   // nothing new to assign
+
+  // Name the new group using the highest group number seen + 1.
+  // Using count of distinct groups would regress when a group becomes
+  // empty after reassignment (e.g. drag Group 2 rows → they become
+  // Group 3, Group 2 empties, count drops back to 2, next = "Group 3" again).
+  const allNums = Object.values(_rowGroupAssign)
+    .map(n=>{ const m=/\d+$/.exec(n); return m?+m[0]:0; });
+  const maxNum = allNums.length ? Math.max(...allNums) : 0;
+  const name = 'Arm ' + (maxNum + 1);
+
+  rows.forEach(r=>{ _rowGroupAssign[r]=name; });
+  _manualGroups=[];
+  syncClearGroupsBtn(); syncUndoBtn();
+  redetect();
+}
+
+function renameAssignedGroup(oldName, val){
+  const newName=(val||'').trim()||oldName;
+  if(newName===oldName) return;
+  Object.keys(_rowGroupAssign).forEach(r=>{ if(_rowGroupAssign[r]===oldName) _rowGroupAssign[r]=newName; });
+  buildV3Debounced();   // rebuild export only — don't re-render the panel (would kill focus)
+}
+function clearRowAssign(){ _rowGroupAssign={}; _manualGroups=[]; syncClearGroupsBtn(); redetect(); }
+function clearAllGroupAssign(){ _rowGroupAssign={}; _manualGroups=[]; _assignUndo=null; syncClearGroupsBtn(); syncUndoBtn(); redetect(); }
+
+// Show/hide the persistent "↺ Clear groups" button based on whether any assignment exists
+function syncClearGroupsBtn(){
+  const btn=document.getElementById('clearGroupsBtn');
+  if(!btn) return;
+  const hasAny = Object.keys(_rowGroupAssign).length>0 || _manualGroups.length>0;
+  btn.style.display = hasAny ? '' : 'none';
+}
+
+// ── Undo last group drag ──────────────────────────────────────────────────────
+let _assignUndo = null;   // snapshot of _rowGroupAssign before the last drag
+function saveAssignUndo(){ _assignUndo = {..._rowGroupAssign}; }
+function undoLastAssign(){
+  if(_assignUndo===null) return;
+  _rowGroupAssign = _assignUndo;
+  _assignUndo = null;
+  _manualGroups = [];
+  syncClearGroupsBtn(); syncUndoBtn(); redetect();
+}
+function syncUndoBtn(){
+  const btn=document.getElementById('undoAssignBtn');
+  if(btn) btn.style.display = _assignUndo!==null ? '' : 'none';
+}
+
+// Renumber drag-assigned groups to a clean sequence by first row of appearance
+function renumberAssigned(prefix){
+  prefix=prefix||'Arm';
+  const order=[];
+  Object.keys(_rowGroupAssign).map(Number).sort((a,b)=>a-b).forEach(r=>{
+    const n=_rowGroupAssign[r];
+    if(!order.includes(n)) order.push(n);
+  });
+  const map={};
+  order.forEach((n,i)=>map[n]=`${prefix} ${i+1}`);
+  Object.keys(_rowGroupAssign).forEach(r=>{ _rowGroupAssign[r]=map[_rowGroupAssign[r]]; });
+  redetect();
+}
+
+function setAssignMode(target){
+  _assignTarget = (_assignTarget===target) ? 'off' : target;
+  const gBtn=document.getElementById('assignGroupsBtn');
+  gBtn.classList.toggle('btn-primary', _assignTarget==='groups');
+  gBtn.textContent = _assignTarget==='groups' ? '✓ Drag rows to group' : '👆 Assign animals → groups';
+  const grid=document.getElementById('rawGrid');
+  grid.classList.toggle('assigning', _assignTarget==='groups');
+  redetect();
+}
+
+function renameManualGroup(i, val){
+  if(_manualGroups[i]){ _manualGroups[i].name=val.trim()||('Arm '+(i+1)); buildV3Debounced(); }
+}
+function clearManualGroups(){ _manualGroups=[]; _rowGroupAssign={}; _assignUndo=null; syncClearGroupsBtn(); syncUndoBtn(); redetect(); }
+
+function onBlockHeaderClick(bi){ setDay1Block(bi); }
+function setBlockDay(bi, val){
+  if(val===''||val==null){ delete _manualDays[bi]; }
+  else { _manualDays[bi]=+val; }
+  document.getElementById('dayMode').value='manual';
+  redetect();
+}
+function clearManualDays(){ _manualDays={}; document.getElementById('dayMode').value='biweekly'; redetect(); }
+
+// ── ID edit with undo ─────────────────────────────────────────────────────────
+const _idEditUndo = {}; // rowIdx → {cols: [{c, prev}]}
+function editRowId(rowIdx, newVal){
+  const row=rawRows[rowIdx]; if(!row) return;
+  const roles=(document.getElementById('roleOrder')?.value||'id,L,W,V,Wt').split(',');
+  const idOffset=Math.max(0, roles.indexOf('id'));
+  newVal=String(newVal).trim();
+  const typed = (newVal!=='' && !isNaN(+newVal) && !/^0\d/.test(newVal)) ? +newVal : newVal;
+  // save undo snapshot for this row
+  const snapshot=[];
+  blocks.forEach(bk=>{
+    const c=bk.start+idOffset;
+    const cur=row[c];
+    if(cur!==null && cur!=='' && !(typeof cur==='string' && _groupPat.test(String(cur).trim())))
+      snapshot.push({c, prev:cur});
+  });
+  _idEditUndo[rowIdx]=snapshot;
+  snapshot.forEach(({c})=>{ row[c]=typed; });
+  // show undo button inline
+  const undoBtn=document.getElementById('idUndoBtn_'+rowIdx);
+  if(undoBtn){ undoBtn.style.display=''; undoBtn.title='Undo ID change (restore original)'; }
+  redetect();
+}
+function undoRowId(rowIdx){
+  const snap=_idEditUndo[rowIdx]; if(!snap) return;
+  const row=rawRows[rowIdx]; if(!row) return;
+  snap.forEach(({c, prev})=>{ row[c]=prev; });
+  delete _idEditUndo[rowIdx];
+  redetect();
+}
+function setDay1Block(bi){
+  const sel=document.getElementById('day1Block');
+  if(sel){ sel.value=bi; }
+  redetect();
+}
+
+// ── Step navigation ──────────────────────────────────────────────────────────
+function goStep(n){
+  ['view1','view2','view3'].forEach((v,i)=>document.getElementById(v).classList.toggle('hidden', i!==n-1));
+  ['stp1','stp2','stp3'].forEach((s,i)=>{
+    const el=document.getElementById(s);
+    el.classList.toggle('active', i===n-1);
+    el.classList.toggle('done', i<n-1);
+  });
+  if(n===3) buildV3();
+}
+function resetAll(){
+  WB=null; rawRows=[]; blocks=[]; blockDays=[];
+  _dupSameDay=new Set(); _dupCrossGroup=new Set(); _rowGroup={};
+  _assignTarget='off'; _dragging=false;
+  v3rows=[]; v3meta={}; Object.keys(_idEditUndo).forEach(k=>delete _idEditUndo[k]);
+  _assignUndo=null;
+  syncClearGroupsBtn(); syncUndoBtn();
+  document.getElementById('fileInput').value='';
+  // reset mode buttons
+  ['assignGroupsBtn'].forEach(id=>{
+    const b=document.getElementById(id); if(b) b.classList.remove('btn-primary');
+  });
+  document.getElementById('assignGroupsBtn').textContent='👆 Assign animals → groups';
+  goStep(1);
+}
+
+// ── File handling ────────────────────────────────────────────────────────────
+const dz=document.getElementById('dropzone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');
+  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);});
+
+function handleFile(file){
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      WB=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const sel=document.getElementById('sheetSel');
+      sel.innerHTML=WB.SheetNames.map(n=>`<option>${n}</option>`).join('');
+      onSheetChange();
+      goStep(2);
+    }catch(err){ alert('Could not read file: '+err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function loadExample(){
+  try{
+    const resp=await fetch('unstructured_09222025.xlsx');
+    if(!resp.ok) throw new Error('Example file not found next to this page.');
+    const buf=await resp.arrayBuffer();
+    WB=XLSX.read(buf,{type:'array',cellDates:true});
+    const sel=document.getElementById('sheetSel');
+    sel.innerHTML=WB.SheetNames.map(n=>`<option>${n}</option>`).join('');
+    onSheetChange(); goStep(2);
+  }catch(err){ alert('Example load failed: '+err.message+'\nUpload the file manually instead.'); }
+}
+
+function onSheetChange(){
+  const name=document.getElementById('sheetSel').value;
+  const ws=WB.Sheets[name];
+  rawRows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true,blankrows:true});
+  _manualGroups=[]; _rowGroupAssign={}; _assignUndo=null;
+  redetect();
+  seedManualFromAuto(true);
+}
+
+// ── Detection ────────────────────────────────────────────────────────────────
+function isNum(v){ return v!==null && v!==''&&!isNaN(+v); }
+function isDate(v){ return v instanceof Date && !isNaN(v); }
+
+// True if a row holds at least one real animal measurement (valid ID + L/W in some block).
+// Used so group boundaries snap only to data rows, not blank/label/stat rows.
+function rowHasAnimal(rowIdx){
+  const row=rawRows[rowIdx]; if(!row) return false;
+  const bw=+document.getElementById('blockWidth')?.value||6;
+  const roles=(document.getElementById('roleOrder')?.value||'id,L,W,V,Wt').split(',');
+  const ri={}; roles.forEach((r,i)=>ri[r]=i);
+  return blocks.some(bk=>{
+    const id=row[bk.start+(ri.id??0)];
+    if(id===null||id==='') return false;
+    if(typeof id==='string' && (/mean|avg|average|sd|sem|%|tgi/i.test(id) || _groupPat.test(id.trim()))) return false;
+    const L=ri.L!=null?row[bk.start+ri.L]:null;
+    const W=ri.W!=null?row[bk.start+ri.W]:null;
+    const V=ri.V!=null?row[bk.start+ri.V]:null;
+    return isNum(L)||isNum(W)||isNum(V);
+  });
+}
+// Snap a clicked row down to the next row that contains animal data
+function snapToAnimalRow(rowIdx){
+  for(let r=rowIdx;r<rawRows.length;r++){ if(rowHasAnimal(r)) return r; }
+  return rowIdx;
+}
+
+function redetect(){
+  if(!rawRows.length) return;   // nothing loaded yet
+  const headerRows=+document.getElementById('headerRows').value||0;
+  let bw=+document.getElementById('blockWidth').value||6;
+  const roles=document.getElementById('roleOrder').value.split(',');
+  const body=rawRows.slice(headerRows);
+
+  const maxCols=Math.max(0,...rawRows.map(r=>r?r.length:0));
+
+  // Find candidate block start columns: a column where many cells below look like animal IDs
+  // (numbers or short alphanumerics) AND the next two columns look like L/W numbers.
+  blocks=[];
+  {
+    const nBlocks=Math.floor(maxCols/bw);
+    for(let b=0;b<nBlocks;b++){
+      const start=b*bw;
+      let score=0,total=0;
+      body.forEach(r=>{
+        if(!r) return;
+        const id=r[start], L=r[start+1], W=r[start+2];
+        const idOk = id!==null && id!=='' && !(typeof id==='string' && _groupPat.test(String(id).trim()));
+        const lwOk = isNum(L)||isNum(W);
+        if(idOk||lwOk) total++;
+        if(idOk && lwOk) score++;
+      });
+      if(score>=3) blocks.push({start, score});
+    }
+  }
+
+  // Block dates from header rows (for the 'date' mode + display)
+  blockDays=blocks.map((bk,i)=>{
+    let date=null;
+    for(let rr=0; rr<Math.max(1,headerRows); rr++){
+      const row=rawRows[rr]; if(!row) continue;
+      for(let c=bk.start;c<bk.start+bw;c++){ if(isDate(row[c])){ date=row[c]; break; } }
+      if(date) break;
+    }
+    return {date, day:i};
+  });
+
+  // Compute day numbers by mode, anchored to the chosen "Day 1" block
+  const mode=document.getElementById('dayMode')?.value || 'biweekly';
+  const firstDay=+document.getElementById('firstDay')?.value || 1;
+  const anchor = Math.max(0, Math.min(blocks.length-1, +(document.getElementById('day1Block')?.value ?? 0)));
+
+  if(mode==='date'){
+    const dated=blockDays.filter(b=>b.date);
+    if(dated.length){
+      // anchor's date = firstDay; others offset by real calendar difference
+      const anchorDate = blockDays[anchor]?.date?.getTime() ?? (dated[0].date.getTime());
+      blockDays.forEach(b=>{ b.day = b.date ? firstDay + Math.round((b.date.getTime()-anchorDate)/864e5) : firstDay; });
+    } else {
+      blockDays.forEach((b,i)=>b.day=firstDay+(i-anchor));
+    }
+  } else if(mode==='sequential'){
+    blockDays.forEach((b,i)=>b.day=firstDay+(i-anchor));
+  } else if(mode==='biweekly'){
+    // Twice-weekly cadence +3,+4,+3,+4… with the anchor block = firstDay.
+    // Forward from anchor: +3,+4,…  Backward from anchor: −4,−3,… (mirror cadence)
+    const step = j => (j%2===0) ? 3 : 4; // step from index j to j+1
+    // forward
+    let d=firstDay;
+    for(let i=anchor;i<blocks.length;i++){ blockDays[i].day=d; d+=step(i-anchor); }
+    // backward
+    d=firstDay;
+    for(let i=anchor-1;i>=0;i--){ d-=step(anchor-1-i); blockDays[i].day=d; }
+  }
+  // 'manual' mode: leave whatever is there (user edits the inputs)
+
+  // Apply any per-block manual day overrides (from clicking column headers)
+  Object.keys(_manualDays).forEach(k=>{
+    const i=+k;
+    if(blockDays[i]) blockDays[i].day=_manualDays[i];
+  });
+
+  renderBlocks(roles, bw);
+  buildV3();                       // compute records + duplicate sets first
+  renderRawGrid(roles, bw, headerRows);  // grid can now highlight duplicates
+  previewGroups(headerRows, bw);
+}
+
+function updateGroupPat(){
+  const kw=(document.getElementById('groupKeywords').value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  if(kw.length){
+    _groupPat = new RegExp('^\\s*('+kw.map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')\\s*\\d*\\b','i');
+  }
+  redetect();
+}
+const updateGroupPatDebounced = debounce(updateGroupPat, 280);
+
+// Keep roleOrder input in sync with the select
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('roleOrderSel')?.addEventListener('change', function(){
+    document.getElementById('roleOrder').value=this.value; redetect();
+  });
+});
+
+// Quick pass to show which groups will be detected (so user can fix before exporting)
+function previewGroups(headerRows, bw){
+  const el=document.getElementById('groupsFound');
+  if(!el) return;
+
+  // DRAG-ASSIGN MODE: explicit row→group assignments
+  const assignNames=[...new Set(Object.values(_rowGroupAssign))];
+  if(assignNames.length){
+    const counts={};
+    Object.entries(_rowGroupAssign).forEach(([r,n])=>{ if(rowHasAnimal(+r)) counts[n]=(counts[n]||0)+1; });
+    const ctrlIdx=detectControlGroup(assignNames);
+    el.innerHTML=`<div class="msg ok">${assignNames.length} group${assignNames.length>1?'s':''} assigned by drag${ctrlIdx>=0?` — <span style="color:var(--blue)">★ "${assignNames[ctrlIdx]}" = control</span>`:''} — rename below.</div>`
+      + `<div style="margin:6px 0 8px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm" onclick="renumberAssigned('Arm')">↦ Renumber as Arm 1, 2, 3…</button>
+          <button class="btn btn-sm" onclick="renumberAssigned('Group')">↦ Renumber as Group 1, 2, 3…</button>
+          <button class="btn btn-sm" onclick="clearRowAssign()">↺ Clear assignments</button>
+        </div>`
+      + `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">`
+      + assignNames.map((n,i)=>`
+          <div class="form-group" style="min-width:160px">
+            <label class="form-label" style="font-size:9px">${counts[n]||0} animal${(counts[n]||0)!==1?'s':''}${i===ctrlIdx?' · <span style="color:var(--blue)">control ★</span>':''}</label>
+            <input class="form-input" value="${n.replace(/"/g,'&quot;')}"
+              style="font-size:12px;padding:5px 8px;border-left:3px solid ${PALETTE[i%PALETTE.length]}"
+              onchange="renameAssignedGroup('${n.replace(/'/g,"\\'")}', this.value)">
+          </div>`).join('')
+      + `</div>`;
+    return;
+  }
+
+  // BOUNDARY MODE: show editable rename inputs
+  if(_manualGroups.length){
+    el.innerHTML=`<div class="msg ok">Auto detected groups (${_manualGroups.length}) — rename below.</div>`
+      + `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">`
+      + _manualGroups.map((g,i)=>{
+          const hint = (g.orig && g.orig!==g.name) ? `was: ${String(g.orig).replace(/"/g,'&quot;')}` : `row ${g.row+1}`;
+          return `
+        <div class="form-group" style="min-width:160px">
+          <label class="form-label" style="font-size:9px">${hint}</label>
+          <input class="form-input" value="${(g.name||'').replace(/"/g,'&quot;')}"
+            style="font-size:12px;padding:5px 8px;border-left:3px solid ${PALETTE[i%PALETTE.length]}"
+            onchange="renameManualGroup(${i}, this.value)">
+        </div>`;}).join('')
+      + `</div>`;
+    return;
+  }
+
+  // AUTO MODE preview
+  let cur=null; const seen=[];
+  for(let r=headerRows;r<rawRows.length;r++){
+    const row=rawRows[r]; if(!row) continue;
+    let gm=null;
+    for(let c=0;c<row.length;c++){
+      const v=row[c];
+      if(typeof v==='string' && _groupPat.test(v.trim())){ gm=v.trim(); break; }
+    }
+    if(!gm){
+      const first=row.find(v=>v!==null&&v!=='');
+      const looksLabel=typeof first==='string'&&first.trim().length&&!/mean|avg|average|sd|sem|%|tgi|utc|week|collect|date/i.test(first)&&!isNum(first);
+      const hasData=blocks.some(bk=>isNum(row[bk.start+1])||isNum(row[bk.start+2]));
+      const hasId=blocks.some(bk=>{const id=row[bk.start];return id!==null&&id!==''&&isNum(id);});
+      if(looksLabel&&!hasData&&!hasId) gm=first.trim();
+    }
+    if(gm && !seen.includes(gm)) seen.push(gm);
+  }
+  if(!seen.length){
+    el.innerHTML='<div class="msg warn">No treatment groups auto-detected. Use <b>👆 Assign animals → groups</b> to drag group boundaries in the table.</div>';
+    const cgh=document.getElementById('cancerGroupHint');
+    if(cgh) cgh.style.display='none';
+  } else {
+    const ctrlIdx=detectControlGroup(seen);
+    el.innerHTML=`<div class="msg ${seen.length>=2?'ok':'warn'}">Auto-detected <b>${seen.length}</b> group${seen.length>1?'s':''}: `
+      + seen.map((g,i)=>{
+          const isCtrl=(i===ctrlIdx);
+          return `<span class="block-chip" style="background:${PALETTE[i%PALETTE.length]}22;border-color:${PALETTE[i%PALETTE.length]}">
+            <span class="dot" style="background:${PALETTE[i%PALETTE.length]}"></span>${g}${isCtrl?' <span class="tag" style="background:rgba(100,200,232,0.25);color:var(--blue)">control ★</span>':''}
+          </span>`;
+        }).join('')
+      + ` &nbsp;<button class="btn btn-sm" onclick="seedManualFromAuto()" style="margin-left:4px">✎ Edit / rename these</button></div>`;
+    const hint=document.getElementById('cancerGroupHint');
+    if(ctrlIdx>=0){
+      hint.style.display=''; hint.innerHTML=`<span style="font-size:11px;color:var(--blue)">★ "${seen[ctrlIdx]}" identified as vehicle/control — will be listed first in the export.</span>`;
+    } else {
+      hint.style.display=''; hint.innerHTML=`<span style="font-size:11px;color:var(--text3)">No vehicle/control group detected. First group used as TGI reference.</span>`;
+    }
+  }
+}
+
+// Convert current auto-detected groups into editable manual boundaries.
+// Each boundary is snapped to the first row WITH animal data at/after the marker,
+// and every distinct arm/group marker is captured (no fixed count).
+function seedManualFromAuto(normalize){
+  if(normalize===undefined) normalize=true;  // default: clean up to "Arm 1, Arm 2…"
+  const headerRows=+document.getElementById('headerRows').value||0;
+  _manualGroups=[];
+  let last=null;
+  for(let r=headerRows;r<rawRows.length;r++){
+    const row=rawRows[r]; if(!row) continue;
+    let gm=null;
+    // keyword marker anywhere in the row
+    for(let c=0;c<row.length;c++){
+      const v=row[c];
+      if(typeof v==='string' && _groupPat.test(v.trim())){ gm=v.trim(); break; }
+    }
+    // fallback: lone text label on a non-data row
+    if(!gm){
+      const first=row.find(v=>v!==null&&v!=='');
+      const looksLabel=typeof first==='string'&&first.trim().length&&!/mean|avg|average|sd|sem|%|tgi|utc|week|collect|date/i.test(first)&&!isNum(first);
+      if(looksLabel && !rowHasAnimal(r)) gm=first.trim();
+    }
+    if(gm && gm!==last){
+      let boundaryRow = snapToAnimalRow(r);
+      if(_manualGroups.some(g=>g.row===boundaryRow)) boundaryRow = r;
+      if(!_manualGroups.some(g=>g.row===boundaryRow))
+        _manualGroups.push({row:boundaryRow, name:gm, orig:gm});
+      last=gm;
+    }
+  }
+  _manualGroups.sort((a,b)=>a.row-b.row);
+  if(normalize) renumberGroups();
+  syncClearGroupsBtn();
+  redetect();
+}
+
+// Rename all current groups to a clean sequential style: "Arm 1, Arm 2, …"
+// (keeps the original messy label in .orig so it can be shown as a hint)
+function renumberGroups(prefix){
+  prefix = prefix || 'Arm';
+  _manualGroups.forEach((g,i)=>{
+    if(g.orig===undefined) g.orig=g.name;
+    g.name = `${prefix} ${i+1}`;
+  });
+  buildV3();
+}
+
+// ── Cancer / control group detection ─────────────────────────────────────────
+// Keywords that indicate a vehicle/control arm (case-insensitive)
+const CTRL_PAT = /\b(vehicle|veh|control|ctrl|saline|pbs|placebo|sham|untreated|naive|water|buffer|dmso)\b/i;
+
+// Given a list of group names (in order), return the index of the control group, or -1.
+function detectControlGroup(names){
+  if(!document.getElementById('optCancerGroups')?.checked) return -1;
+  // 1. Exact keyword match in name
+  for(let i=0;i<names.length;i++) if(CTRL_PAT.test(names[i])) return i;
+  // 2. "Arm 1" / "Group 1" heuristic — first arm is usually vehicle
+  for(let i=0;i<names.length;i++){
+    if(/\b(arm|group)\s*1\b/i.test(names[i])) return i;
+  }
+  return -1;
+}
+
+// Reorder group list so control comes first (used in buildV3 / toV3Matrix)
+function reorderGroupsCtrlFirst(names){
+  const ci=detectControlGroup(names);
+  if(ci<=0) return names;
+  return [names[ci], ...names.slice(0,ci), ...names.slice(ci+1)];
+}
+
+function renderBlocks(roles, bw){
+  const msg=document.getElementById('detectMsg');
+  const tmplNote = '';
+  if(!blocks.length){
+    msg.innerHTML=tmplNote+'<div class="msg error">No repeating measurement blocks detected. Try adjusting block width or header rows.</div>';
+  }else{
+    msg.innerHTML=tmplNote+`<div class="msg ok">Detected <b>${blocks.length}</b> day-block${blocks.length>1?'s':''} of ${bw} columns each, role pattern: <b>${roles.join(' · ')}</b>.</div>`;
+  }
+  document.getElementById('blockList').innerHTML=blocks.map((b,i)=>{
+    const col=XLSX.utils.encode_col(b.start);
+    const pre = blockDays[i] && blockDays[i].day < (+document.getElementById('firstDay')?.value||1);
+    return `<span class="block-chip" style="${pre?'opacity:.6;border-style:dashed':''}"><span class="dot"></span>Block ${i+1} @ col ${col} <span class="tag">${b.score} animals</span>${pre?' <span class="tag" style="background:rgba(245,166,35,0.25);color:var(--amber)">pre</span>':''}</span>`;
+  }).join('');
+
+  // Populate the Day-1 anchor dropdown (preserve current selection)
+  const d1sel=document.getElementById('day1Block');
+  if(d1sel){
+    const cur=d1sel.value;
+    d1sel.innerHTML=blocks.map((b,i)=>{
+      const dateStr=blockDays[i]?.date?blockDays[i].date.toISOString().slice(5,10):'';
+      return `<option value="${i}">Block ${i+1}${dateStr?' ('+dateStr+')':''}</option>`;
+    }).join('');
+    if(cur!=='' && +cur<blocks.length) d1sel.value=cur;
+  }
+
+  // Editable day numbers
+  document.getElementById('blockDays').innerHTML=blocks.map((b,i)=>{
+    const d=blockDays[i];
+    const dateStr=d.date?d.date.toISOString().slice(0,10):'no date';
+    const fd=+document.getElementById('firstDay')?.value||1;
+    const pre = d.day<fd;
+    const isManual = _manualDays[i]!=null;
+    return `<div class="form-group" style="min-width:90px">
+      <label class="form-label" style="font-size:9px;${pre?'color:var(--amber)':''}">Blk ${i+1} (${dateStr})${pre?' · pre':''}${isManual?' ✎':''}</label>
+      <input id="dayInput_${i}" class="form-input" type="number" value="${d.day}" style="width:80px;font-size:11px;padding:4px 6px;${pre?'border-color:var(--amber)':''}${isManual?'box-shadow:0 0 0 1px var(--accent)':''}"
+        onchange="setBlockDay(${i}, this.value)">
+    </div>`;
+  }).join('');
+
+  // Manual-days clear bar
+  const mdBar=document.getElementById('manualDaysBar');
+  if(mdBar){
+    const cnt=Object.keys(_manualDays).length;
+    if(cnt){
+      mdBar.classList.remove('hidden');
+      mdBar.innerHTML=`<div class="msg ok" style="margin:0">${cnt} block day${cnt>1?'s':''} set manually. <button class="btn btn-sm" onclick="clearManualDays()" style="margin-left:8px">↺ Reset days to auto</button></div>`;
+    } else { mdBar.classList.add('hidden'); mdBar.innerHTML=''; }
+  }
+}
+
+function renderRawGrid(roles, bw, headerRows){
+  const maxCols=Math.max(0,...rawRows.map(r=>r?r.length:0));
+  const colRole={};
+  blocks.forEach(b=>{ roles.forEach((rl,i)=>{ colRole[b.start+i]=rl; }); });
+
+  // Map each column to its block index (by the block's start/ID column)
+  const colToBlock={};
+  blocks.forEach((b,bi)=>{ colToBlock[b.start]=bi; });
+  const anchor = Math.max(0, Math.min(blocks.length-1, +(document.getElementById('day1Block')?.value ?? 0)));
+
+  let html='<table class="grid"><thead><tr><th class="rownum">#</th><th class="grpcol">Group</th>';
+  for(let c=0;c<maxCols;c++){
+    if(false){
+      // preview role if this column falls within the template
+      let roleLbl='';
+    }
+    if(colToBlock[c]!==undefined){
+      const bi=colToBlock[c];
+      const isAnchor = bi===anchor;
+      const dayLbl = blockDays[bi] ? blockDays[bi].day : '';
+      const manualDay = _manualDays[bi]!=null;
+      html+=`<th class="colhdr blockhdr${isAnchor?' anchor':''}${manualDay?' manualday':''}" data-blk="${bi}" onclick="onBlockHeaderClick(${bi})"
+        title="Click to set Block ${bi+1} as Day 1">${XLSX.utils.encode_col(c)}
+        <div class="blockhdr-sub">${isAnchor?'★ d'+dayLbl:'Blk '+(bi+1)+' · d'+dayLbl}</div></th>`;
+    } else {
+      html+=`<th class="colhdr">${XLSX.utils.encode_col(c)}</th>`;
+    }
+  }
+  html+='</tr></thead><tbody>';
+  const showRows=Math.min(rawRows.length, 80);
+  for(let r=0;r<showRows;r++){
+    const row=rawRows[r]||[];
+    const isAnimalRow = rowHasAnimal(r);
+    // Only assign/show a group on rows that actually contain animal data
+    const grpName = (hasManualGroups() && isAnimalRow) ? (groupForRow(r)||'') : '';
+    // stable color per distinct group name
+    const allNames = [...new Set(Object.values(_rowGroupAssign))];
+    const palIdx = grpName ? Math.max(0, allNames.indexOf(grpName), _manualGroups.findIndex(g=>g.name===grpName)) : 0;
+    const grpColor = grpName?PALETTE[Math.max(0,palIdx)%PALETTE.length]:'';
+    html+=`<tr data-row="${r}" class="${_assignTarget==='groups'?'clickable':''}">`;
+    html+=`<td class="rownum">${r+1}</td>`;
+    // group column shows the assigned group (animal rows only)
+    html+=`<td class="grpcol" style="${grpColor?`background:${grpColor}22;border-left:3px solid ${grpColor};color:${grpColor}`:'color:var(--text3)'}">${grpName||'·'}</td>`;
+    const cleanIds=document.getElementById('optCleanIds')?.checked;
+    const rowGroup = _rowGroup[r] != null ? _rowGroup[r] : null;
+    for(let c=0;c<maxCols;c++){
+      let v=row[c];
+      let cls='';
+      let extraStyle='';
+      let dupTitle='';
+      let txt = v==null?'' : isDate(v)?v.toISOString().slice(0,10) : String(v);
+      const isArm = typeof v==='string' && _groupPat.test(v.trim());
+      if(isArm && !hasManualGroups()) cls='role-group';
+      else if(r>=headerRows && colRole[c]){
+        const rl=colRole[c];
+        cls = rl==='id'?'role-id':rl==='L'?'role-L':rl==='W'?'role-W':rl==='V'?'role-V':rl==='Wt'?'role-Wt':'role-skip';
+        if(rl==='id' && v!=null && v!==''){
+          // compute the effective (possibly cleaned) ID for this cell
+          let effId=String(v);
+          if(cleanIds){ const d=effId.replace(/[^0-9]/g,''); if(d!=='') effId=d; }
+          // duplicate highlight (uses cleaned IDs, matching the export)
+          const sameDay = rowGroup!=null && _dupSameDay.has(rowGroup+'\x00'+effId);
+          const cross   = _dupCrossGroup.has(effId);
+          let inpStyle='';
+          if(sameDay){ inpStyle='background:rgba(244,116,91,0.5);color:#fff;font-weight:700'; dupTitle='Duplicate ID on same day in this group — likely typo. Edit to fix; change applies to the whole row.'; }
+          else if(cross){ inpStyle='background:rgba(245,166,35,0.4);font-weight:700'; dupTitle='This ID appears in more than one group. Edit to fix; change applies to the whole row.'; }
+          // Editable ID input — committing updates ALL id columns in this row
+          const hasUndo = _idEditUndo[r]!=null;
+          html+=`<td class="role-id idcell" title="${(dupTitle||'Edit ID — applies to all blocks in this row').replace(/"/g,'&quot;')}"><input class="id-edit" style="${inpStyle}" value="${String(v).replace(/"/g,'&quot;')}" onchange="editRowId(${r}, this.value)" onclick="event.stopPropagation()">${cleanIds&&effId!==String(v)?`<span class="id-clean" title="cleans to ${effId}">→${effId}</span>`:''}<button id="idUndoBtn_${r}" onclick="undoRowId(${r})" title="Undo ID change" style="display:${hasUndo?'':'none'};font-size:9px;padding:1px 4px;margin-left:2px;background:var(--surface3);border:1px solid var(--border);border-radius:3px;color:var(--amber);cursor:pointer">↺</button></td>`;
+          continue;
+        }
+      } else cls='role-skip';
+      const title=(dupTitle||txt).replace(/"/g,'&quot;');
+      html+=`<td class="${cls}" style="${extraStyle}" title="${title}">${txt.length>16?txt.slice(0,15)+'…':txt}</td>`;
+    }
+    html+='</tr>';
+  }
+  html+='</tbody></table>';
+  document.getElementById('rawGrid').innerHTML=html;
+}
+
+// ── Build V3 ─────────────────────────────────────────────────────────────────
+function buildV3(){
+  const headerRows=+document.getElementById('headerRows').value||0;
+  const bw=+document.getElementById('blockWidth').value||6;
+  const roles=document.getElementById('roleOrder').value.split(',');
+  const volFromLW=document.getElementById('optVolFromLW').checked;
+  const dropNoLW=document.getElementById('optDropNoLW').checked;
+  const cleanIds=document.getElementById('optCleanIds')?.checked;
+  const dropPre=document.getElementById('optDropPre')?.checked;
+  const firstDay=+document.getElementById('firstDay')?.value||1;
+
+  const roleIdx={};
+  roles.forEach((rl,i)=>roleIdx[rl]=i);
+
+  // Walk rows; track current group from 'Arm…' rows in column 0 (or any cell)
+  let currentGroup=null;
+  const records=[]; // {group, animalId, day, L, W, Wt, V}
+  const groupSet=new Set();
+
+  for(let r=headerRows;r<rawRows.length;r++){
+    const row=rawRows[r]; if(!row) continue;
+
+    // MANUAL MODE: explicit drag-assignment or boundaries override auto-detection
+    if(hasManualGroups()){
+      const mg = groupForRow(r);
+      if(mg) { currentGroup = mg; groupSet.add(mg); }
+      // rows without an explicit assignment keep the previous group (boundary behaviour);
+      // for pure drag-assign, unassigned animal rows simply inherit currentGroup
+    } else {
+      // AUTO MODE: detect group-divider rows
+      let gm=null;
+      for(let c=0;c<row.length;c++){
+        const v=row[c];
+        if(typeof v==='string' && _groupPat.test(v.trim())){ gm=v.trim(); break; }
+      }
+      if(!gm){
+        const first = row.find(v=>v!==null && v!=='');
+        const looksLabel = typeof first==='string' && first.trim().length &&
+          !/mean|avg|average|sd|sem|%|tgi|utc|week|collect|date/i.test(first) && !isNum(first);
+        const hasData = blocks.some(bk=> isNum(row[bk.start+1]) || isNum(row[bk.start+2]));
+        const hasId   = blocks.some(bk=>{const id=row[bk.start]; return id!==null&&id!==''&&isNum(id);});
+        if(looksLabel && !hasData && !hasId) gm=first.trim();
+      }
+      if(gm){ currentGroup=gm; groupSet.add(gm); continue; }
+    }
+
+    // Otherwise read each block
+    blocks.forEach((bk,bi)=>{
+      // Skip pre-measurement blocks (day < firstDay) if requested
+      if(dropPre && blockDays[bi] && blockDays[bi].day < firstDay) return;
+      const base=bk.start;
+      const id = row[base + (roleIdx.id??0)];
+      // must have an animal id that is not a stat label / empty
+      if(id===null||id==='') return;
+      if(typeof id==='string' && (/mean|avg|average|sd|sem|%|tgi/i.test(id) || _groupPat.test(id.trim()))) return;
+      const L = roleIdx.L!=null ? row[base+roleIdx.L] : null;
+      const W = roleIdx.W!=null ? row[base+roleIdx.W] : null;
+      const Vraw = roleIdx.V!=null ? row[base+roleIdx.V] : null;
+      const Wtraw = roleIdx.Wt!=null ? row[base+roleIdx.Wt] : null;
+      // weight cell sometimes holds a flag like 'TGI' — only accept numeric
+      const Wt = isNum(Wtraw) ? +Wtraw : null;
+
+      const hasLW = isNum(L)||isNum(W);
+      if(dropNoLW && !hasLW && !isNum(Vraw)) return;
+
+      // Volume
+      let V=null;
+      if(volFromLW && isNum(L) && isNum(W)) V = +L*(+W)*(+W)/2;
+      else if(isNum(Vraw)) V = +Vraw;
+      else if(isNum(L)&&isNum(W)) V = +L*(+W)*(+W)/2;
+
+      // Optionally strip letters/symbols from the ID, keeping digits only.
+      // Preserves leading zeros (e.g. "01234" stays "01234"). Falls back to the
+      // original if cleaning would remove everything.
+      let outId = id;
+      if(cleanIds && id!=null){
+        const digits = String(id).replace(/[^0-9]/g,'');
+        if(digits!=='') outId = digits;
+      }
+
+      records.push({
+        group: currentGroup || 'Group 1',
+        animalId: outId,
+        day: blockDays[bi].day,
+        L: isNum(L)?+L:null, W: isNum(W)?+W:null,
+        Wt, V,
+        _row: r
+      });
+    });
+  }
+
+  groupsDetected = reorderGroupsCtrlFirst([...groupSet]);
+  v3rows=records;
+
+  // row → group map (works in both auto and manual modes) for grid highlighting
+  _rowGroup={};
+  records.forEach(r=>{ if(r._row!=null) _rowGroup[r._row]=r.group; });
+
+  // ── Duplicate ID detection (likely typos) ──────────────────────────────
+  // (a) same ID measured twice on the SAME day within the SAME group
+  // (b) same ID appearing in MORE THAN ONE group
+  const perDay={};       // group|day|id -> count
+  const idToGroups={};   // id -> Set(groups)
+  records.forEach(r=>{
+    const k=r.group+'\x00'+r.day+'\x00'+r.animalId;
+    perDay[k]=(perDay[k]||0)+1;
+    (idToGroups[r.animalId]=idToGroups[r.animalId]||new Set()).add(r.group);
+  });
+  const dupSameDay=new Set();
+  Object.keys(perDay).forEach(k=>{
+    if(perDay[k]>1){ const parts=k.split('\x00'); dupSameDay.add(parts[0]+'\x00'+parts[2]); }
+  });
+  const dupCrossGroup=new Set(); // ids that appear in >1 group
+  Object.keys(idToGroups).forEach(id=>{ if(idToGroups[id].size>1) dupCrossGroup.add(id); });
+  _dupSameDay=dupSameDay; _dupCrossGroup=dupCrossGroup;
+
+  v3meta={nGroups:groupsDetected.length||1, nAnimals:new Set(records.map(r=>r.group+'|'+r.animalId)).size,
+    nDays:new Set(records.map(r=>r.day)).size, nMeas:records.length,
+    nDupDay:dupSameDay.size, nDupGroup:dupCrossGroup.size};
+
+  renderV3Preview();
+}
+
+function renderV3Preview(){
+  const s=document.getElementById('v3Stats');
+  s.innerHTML=`
+    <div class="stat"><div class="stat-val" style="color:var(--amber)">${v3meta.nGroups}</div><div class="stat-lbl">Groups</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--accent)">${v3meta.nAnimals}</div><div class="stat-lbl">Animals</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--blue)">${v3meta.nDays}</div><div class="stat-lbl">Timepoints</div></div>
+    <div class="stat"><div class="stat-val">${v3meta.nMeas}</div><div class="stat-lbl">Measurements</div></div>
+    ${v3meta.nDupDay?`<div class="stat" style="border-color:var(--red)"><div class="stat-val" style="color:var(--red)">${v3meta.nDupDay}</div><div class="stat-lbl">Duplicate IDs</div></div>`:''}`;
+
+  const msg=document.getElementById('v3Msg');
+  if(!v3rows.length){ msg.innerHTML='<div class="msg error">No measurements extracted. Go back and check the structure settings.</div>'; }
+  else{
+    const noWt=v3rows.filter(r=>r.Wt==null).length;
+    let warn='';
+    if(noWt) warn+=`<div class="msg warn">${noWt} of ${v3rows.length} measurements have no body weight (BWC tabs will skip those).</div>`;
+    if(v3meta.nDupDay) warn+=`<div class="msg error">⚠ ${v3meta.nDupDay} animal ID${v3meta.nDupDay>1?'s have':' has'} a duplicate on the same day within a group — likely a typo. Highlighted in red below; fix in the source file or use manual ID cleanup.</div>`;
+    if(v3meta.nDupGroup) warn+=`<div class="msg warn">⚠ ${v3meta.nDupGroup} animal ID${v3meta.nDupGroup>1?'s appear':' appears'} in more than one group (also highlighted) — check these are really different animals.</div>`;
+    msg.innerHTML=(v3meta.nDupDay?'':`<div class="msg ok">Extracted cleanly. Ready to export.</div>`)+warn;
+  }
+
+  // Preview table — show first 80 rows by default with a toggle to see all
+  const _previewAll = document.getElementById('previewAllToggle')?.checked;
+  const previewRows = _previewAll ? v3rows : v3rows.slice(0,80);
+  const showToggle = v3rows.length>80;
+  let html='<table class="v3"><thead><tr><th>Group</th><th>Animal</th><th>Day</th><th>Length</th><th>Width</th><th>Weight</th><th>Volume</th></tr></thead><tbody>';
+  previewRows.forEach(r=>{
+    const sameDay=_dupSameDay.has(r.group+'\x00'+r.animalId);
+    const cross=_dupCrossGroup.has(r.animalId);
+    const idStyle = sameDay ? 'background:rgba(244,116,91,0.35);color:#fff;font-weight:700;border-radius:3px'
+                  : cross   ? 'background:rgba(245,166,35,0.30);font-weight:700;border-radius:3px' : '';
+    const idTitle = sameDay ? 'Duplicate on same day in this group — likely typo'
+                  : cross   ? 'This ID appears in more than one group' : '';
+    html+=`<tr><td>${r.group}</td><td class="mono"><span style="${idStyle};padding:0 4px" title="${idTitle}">${r.animalId}</span></td><td class="mono">${r.day}</td>
+      <td class="mono">${r.L??'—'}</td><td class="mono">${r.W??'—'}</td><td class="mono">${r.Wt??'—'}</td>
+      <td class="mono">${r.V!=null?r.V.toFixed(1):'—'}</td></tr>`;
+  });
+  html+='</tbody></table>';
+  document.getElementById('v3Preview').innerHTML=html;
+  const tgl=document.getElementById('v3PreviewToggle');
+  if(tgl){
+    tgl.style.display=showToggle?'':'none';
+    if(showToggle) tgl.innerHTML=`<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);cursor:pointer;margin-top:6px">
+      <input type="checkbox" id="previewAllToggle" ${_previewAll?'checked':''} onchange="renderV3Preview()" style="accent-color:var(--accent)">
+      Show all ${v3rows.length} rows${_previewAll?'':` (previewing first 80)`}</label>`;
+  }
+}
+
+// ── Export to V3 format ──────────────────────────────────────────────────────
+// V3 layout: header row ['Group','ID','Day','Length','Width','Weight'] repeated per block,
+// then one row per animal with that animal's measurements across all days as 6-col blocks.
+function toV3Matrix(){
+  const days=[...new Set(v3rows.map(r=>r.day))].sort((a,b)=>a-b);
+  // index by group|animal
+  const byAnimal={};
+  v3rows.forEach(r=>{
+    const k=r.group+'||'+r.animalId;
+    if(!byAnimal[k]) byAnimal[k]={group:r.group, animalId:r.animalId, days:{}};
+    byAnimal[k].days[r.day]=r;
+  });
+  // order animals by group then id
+  const animals=Object.values(byAnimal).sort((a,b)=>{
+    const gi=groupsDetected.indexOf(a.group)-groupsDetected.indexOf(b.group);
+    if(gi!==0) return gi;
+    return String(a.animalId).localeCompare(String(b.animalId),undefined,{numeric:true});
+  });
+
+  const matrix=[];
+  // header row: 6 cols per day-block
+  const hdr=[];
+  days.forEach(()=>hdr.push('Group','ID','Day','Length','Width','Weight'));
+  matrix.push(hdr);
+
+  animals.forEach(a=>{
+    const row=[];
+    days.forEach(d=>{
+      const rec=a.days[d];
+      if(rec){
+        row.push(a.group, a.animalId, d,
+          rec.L??'', rec.W??'',
+          rec.Wt??'');
+      }else{
+        row.push(a.group, a.animalId, d, '', '', '');
+      }
+    });
+    matrix.push(row);
+  });
+  return matrix;
+}
+
+function downloadV3(){
+  if(!v3rows.length){ alert('Nothing to export.'); return; }
+  const m=toV3Matrix();
+  const ws=XLSX.utils.aoa_to_sheet(m);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'V3');
+  XLSX.writeFile(wb,`extracted_TGI_V3_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+function downloadV3CSV(){
+  if(!v3rows.length){ alert('Nothing to export.'); return; }
+  const m=toV3Matrix();
+  const csv=m.map(r=>r.map(c=>{
+    const s=c==null?'':String(c);
+    return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+  }).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`extracted_TGI_V3_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+document.addEventListener('mouseup', ()=>{ if(_dragging) onRowMouseUp(); });
+
+// ── Event delegation: row drag (groups mode) ─────────────────────────────────
+// Single listener on the table container — works regardless of cell contents
+// (inputs, spans inside a row won't swallow the event before it reaches here).
+;(function(){
+  const attachRowDrag = () => {
+    const gridWrap = document.getElementById('rawGrid');
+    if(!gridWrap || gridWrap._dragBound) return;
+    gridWrap._dragBound = true;
+
+    gridWrap.addEventListener('mousedown', ev=>{
+      if(_assignTarget!=='groups') return;
+      // Don't hijack clicks inside an id-edit input — user wants to type
+      if(ev.target.classList.contains('id-edit')) return;
+      const tr=ev.target.closest('tr[data-row]');
+      if(!tr) return;
+      ev.preventDefault();
+      _dragging=true;
+      _dragStart=_dragEnd=+tr.getAttribute('data-row');
+      highlightDragRange();
+    }, {capture:false});
+
+    gridWrap.addEventListener('mousemove', ev=>{
+      if(!_dragging) return;
+      const tr=ev.target.closest('tr[data-row]');
+      if(!tr) return;
+      const r=+tr.getAttribute('data-row');
+      if(r===_dragEnd) return;
+      _dragEnd=r;
+      highlightDragRange();
+    });
+  };
+  // rawGrid is populated dynamically so attach after first render via a MutationObserver
+  const obs=new MutationObserver(()=>{ attachRowDrag(); });
+  obs.observe(document.body, {childList:true, subtree:true});
+  // also try immediately (in case DOM already has it)
+  document.addEventListener('DOMContentLoaded', attachRowDrag);
+})();
+
+goStep(1);
+</script>
+</body>
+</html>
